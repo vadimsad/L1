@@ -1,105 +1,180 @@
-function convertToJSON(str) {
-    let index = 0;
-  
-    function parseValue() {
-      const char = str[index];
-      
-      if (char === '"') {
-        return parseString();
-      } else if (char === '{') {
-        return parseObject();
-      } else if (char === '[') {
-        return parseArray();
-      } else if (char === 't') {
-        return parseTrue();
-      } else if (char === 'f') {
-        return parseFalse();
-      } else if (char === 'n') {
-        return parseNull();
-      } else {
-        return parseNumber();
-      }
-    }
-  
-    function parseString() {
-      index++;
-      let result = '';
-      
-      while (str[index] !== '"') {
-        result += str[index];
-        index++;
-      }
-      
-      index++;
-      return result;
-    }
-  
-    function parseObject() {
-      index++;
-      const obj = {};
-  
-      while (str[index] !== '}') {
-        const key = parseString();
-        index++; // Skip ":"
-        const value = parseValue();
-        obj[key] = value;
-  
-        if (str[index] === ',') {
-          index++; // Skip ","
-        }
-      }
-  
-      index++; // Skip "}"
-      return obj;
-    }
-  
-    function parseArray() {
-      index++;
-      const arr = [];
-  
-      while (str[index] !== ']') {
-        const value = parseValue();
-        arr.push(value);
-  
-        if (str[index] === ',') {
-          index++; // Skip ","
-        }
-      }
-  
-      index++; // Skip "]"
-      return arr;
-    }
-  
-    function parseTrue() {
-      index += 4; // Skip "true"
-      return true;
-    }
-  
-    function parseFalse() {
-      index += 5; // Skip "false"
-      return false;
-    }
-  
-    function parseNull() {
-      index += 4; // Skip "null"
-      return null;
-    }
-  
-    function parseNumber() {
-      let result = '';
-      
-      while (/[0-9.eE+-]/.test(str[index])) {
-        result += str[index];
-        index++;
-      }
-  
-      return parseFloat(result);
-    }
-  
-    return parseValue();
+function customJSONParse(jsonString) {
+  // Удаляем пробелы и другие пустые символы
+  jsonString = jsonString.trim();
+
+  // Обрабатывем пустую строку
+  if (jsonString === "") {
+    return '';
   }
-  
-  const jsonString = '{"name": "John", "age": 30, "isAdmin": false, "friends": ["Alice", "Bob"], "address": {"city": "New York", "zip": "10001"}}';
-  const jsonObject = convertToJSON(jsonString);
-  console.log(jsonObject);
-  
+
+  let index = 0;
+
+  // Основная функция для парсинга значений всех типов
+  function parseValue() {
+    const char = jsonString[index];
+
+    if (char === "{") {
+      return parseObject();
+    } else if (char === "[") {
+      return parseArray();
+    } else if (char === '"') {
+      return parseString();
+    } else if (char === "t" && jsonString.slice(index, index + 4) === "true") {
+      index += 4;
+      return true;
+    } else if (char === "f" && jsonString.slice(index, index + 5) === "false") {
+      index += 5;
+      return false;
+    } else if (char === "n" && jsonString.slice(index, index + 4) === "null") {
+      index += 4;
+      return null;
+    } else if (char === "-" || (char >= "0" && char <= "9")) {
+      return parseNumber();
+    } else {
+      throw new SyntaxError(`Unexpected token: ${char}`);
+    }
+  }
+
+  // Функция для парсинга строк
+  function parseString() {
+    index++;
+    let result = "";
+
+    while (index < jsonString.length) {
+      const char = jsonString[index];
+
+      // Если текущий символ это кавычки, значит строка закончилась
+      if (char === '"') {
+        index++;
+        return result;
+      }
+      // Если текущий символ это \\, значит это спецсимвол, обрабатываем его отдельно
+      else if (char === "\\") {
+        const nextChar = jsonString[index + 1];
+
+        if (nextChar === '"' || nextChar === "\\" || nextChar === "/" || nextChar === "b" || nextChar === "f" || nextChar === "n" || nextChar === "r" || nextChar === "t" || nextChar === "u") {
+          result += nextChar;
+          index += 2;
+        } else {
+          throw new SyntaxError(`Invalid escape sequence: \\${nextChar}`);
+        }
+      }
+      // Во всех остальных случаях добавляем символ к результату и идем дальше
+      else {
+        result += char;
+        index++;
+      }
+    }
+
+    // Если цикл завершился, а закрывающая кавычка не была обнаружена, выбрасываем ошибку
+    throw new SyntaxError("Unterminated string literal");
+  }
+
+  // Функция для парсинга чисел
+  function parseNumber() {
+    const start = index;
+
+    // Пока текущий символ является числом, увеличиваем index
+    while (index < jsonString.length && (jsonString[index] === "-" || (jsonString[index] >= "0" && jsonString[index] <= "9") || jsonString[index] === "." || jsonString[index] === "e" || jsonString[index] === "E")) {
+      index++;
+    }
+
+    // После остановки цикла получаем все число целиком
+    const numberString = jsonString.slice(start, index);
+    // Приводим его к числовому формату
+    const parsedNumber = parseFloat(numberString);
+
+    // Дополнительная проверка на NaN
+    if (isNaN(parsedNumber)) {
+      throw new SyntaxError(`Invalid number: ${numberString}`);
+    }
+
+    return parsedNumber;
+  }
+
+  // Функция для парсинга масссива
+  function parseArray() {
+    index++;
+    const array = [];
+
+    while (index < jsonString.length) {
+      const char = jsonString[index];
+
+      // Если найден закрывающий символ, возвращаем полученный массив
+      if (char === "]") {
+        index++;
+        return array;
+      }
+
+      // Вызываем функцию для парсинга текущего значения и добавляем его в массив
+      const value = parseValue();
+      array.push(value);
+
+      // Если найдена запятая, продолжаем парсинг
+      if (jsonString[index] === ",") {
+        index++;
+      }
+      // Если текущий символ не является ни запятой ни закрывающей скобкой, выбрасываем ошибку
+      else if (jsonString[index] !== "]") {
+        throw new SyntaxError(`Unexpected token: ${jsonString[index]}`);
+      }
+    }
+
+    throw new SyntaxError("Unterminated array");
+  }
+
+  // Функция для парсинга объекта
+  function parseObject() {
+    index++;
+    const obj = {};
+
+    while (index < jsonString.length) {
+      const char = jsonString[index];
+
+      if (char === "}") {
+        index++;
+        return obj;
+      }
+
+      // Ключ парсим как строку
+      const key = parseString();
+
+      // Если после ключа не идет ":", выбрасываем ошибку
+      if (jsonString[index] !== ":") {
+        throw new SyntaxError(`Expected ':' after key in object, but found '${jsonString[index]}'`);
+      }
+
+      // Проходим ":"
+      index++;
+      // Парсим значение
+      const value = parseValue();
+      // Сохраняем пару ключ-значение в объекте
+      obj[key] = value;
+
+      // Если найдена запятая, продолжаем парсинг
+      if (jsonString[index] === ",") {
+        index++;
+      }
+      // Если текущий символ не является ни запятой ни закрывающей скобкой, выбрасываем ошибку
+      else if (jsonString[index] !== "}") {
+        throw new SyntaxError(`Unexpected token: ${jsonString[index]}`);
+      }
+    }
+
+    throw new SyntaxError("Unterminated object");
+  }
+
+  const result = parseValue();
+
+  // Проверяем, что весь входной JSON-текст был обработан
+  if (index !== jsonString.length) {
+    throw new SyntaxError(`Unexpected token: ${jsonString[index]}`);
+  }
+
+  return result;
+}
+
+// Пример использования:
+const jsonString = '{"name":"John","age":30,"isAdmin":true,"salary":1250.75,"city":"New York","nullValue":null,"child":{"test":["a",12,true]}}';
+const parsedObject = customJSONParse(jsonString);
+console.log(parsedObject);

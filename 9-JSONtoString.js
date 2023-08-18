@@ -5,7 +5,7 @@ function JSONtoString(data) {
         if (Array.isArray(data)) {
             const arrayValues = data.map(JSONtoString);
             return `[${arrayValues.join(',')}]`;
-        } 
+        }
         // Если значение является объектом, формируем строку определенным образом
         else {
             const objectEntries = Object.entries(data).map(([key, value]) => {
@@ -23,3 +23,15 @@ function JSONtoString(data) {
         return String(data)
     }
 }
+
+const obj = {
+    name: 'John',
+    age: 30,
+    isAdmin: true,
+    salary: 1250.75,
+    city: 'New York',
+    nullValue: null,
+    child: { test: ['a', 12, true] }
+}
+
+console.log(JSONtoString(obj))
