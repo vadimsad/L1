@@ -1,4 +1,4 @@
-function customJSONParse(jsonString) {
+function stringToJSON(jsonString) {
   // Удаляем пробелы и другие пустые символы
   jsonString = jsonString.trim();
 
@@ -176,5 +176,5 @@ function customJSONParse(jsonString) {
 
 // Пример использования:
 const jsonString = '{"name":"John","age":30,"isAdmin":true,"salary":1250.75,"city":"New York","nullValue":null,"child":{"test":["a",12,true]}}';
-const parsedObject = customJSONParse(jsonString);
+const parsedObject = stringToJSON(jsonString);
 console.log(parsedObject);
